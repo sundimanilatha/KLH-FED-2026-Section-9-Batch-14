@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Parking — DDCA Project</title>
+<style>
+  :root{
+    --bg: #fff5f9;
+    --bg-2: #ffffff;
+    --pink: #ec4899;
+    --pink-bright: #db2777;
+    --pink-soft: #fbcfe8;
+    --text: #2a1a22;
+    --muted: #a4788e;
+    --card-bg: #ffffff;
+    --card-border: #f6c9dd;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:
+      radial-gradient(ellipse at 15% -5%, rgba(236,72,153,0.10), transparent 55%),
+      radial-gradient(ellipse at 85% 105%, rgba(236,72,153,0.08), transparent 50%),
+      var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    position: relative;
+  }
+
+  .line-layer{ position:absolute; top:0; left:0; width:100%; height:55%; pointer-events:none; opacity: 0.95; transition: opacity .3s ease; }
+  .line-layer svg{width:100%; height:100%;}
+  .path-track{ fill:none; stroke: rgba(236,72,153,0.18); stroke-width: 1.5; }
+  .path-glow{
+    fill:none; stroke: var(--pink); stroke-width: 2.2;
+    stroke-dasharray: 6 700;
+    filter: drop-shadow(0 0 7px rgba(236,72,153,0.65));
+    animation: travel 7s linear infinite;
+  }
+  @keyframes travel{ 0%{stroke-dashoffset:0;} 100%{stroke-dashoffset:-706;} }
+  .node{ fill: var(--pink-bright); filter: drop-shadow(0 0 8px rgba(219,39,119,0.7)); animation: pulse 2.4s ease-in-out infinite; }
+  @keyframes pulse{ 0%,100%{ r:4; opacity:1; } 50%{ r:6; opacity:0.6; } }
+
+  .deck{ position:relative; z-index:2; max-width: 1040px; margin: 0 auto; padding: 78px 32px 0; height: 100%; overflow-y: auto; }
+
+  .eyebrow{ display:flex; align-items:center; gap:10px; font-size: 12px; letter-spacing: 0.12em; color: var(--muted); margin-bottom: 6px; opacity:0; animation: fadeInUp .5s ease .02s forwards; }
+  .eyebrow .rule{ width:24px; height:1px; background: var(--muted); display:inline-block; }
+  .tagline{ font-size: 12px; letter-spacing: 0.08em; color: var(--pink-bright); margin-bottom: 18px; font-weight:600; opacity:0; animation: fadeInUp .5s ease .08s forwards; }
+
+  .index{ position:absolute; top:78px; right:32px; font-size: 12px; color: var(--muted); letter-spacing: 0.08em; font-variant-numeric: tabular-nums; }
+
+  .badge{
+    display:inline-flex; align-items:center; gap:6px;
+    font-size:11px; letter-spacing:0.08em; font-weight:600;
+    color: #ffffff;
+    background: linear-gradient(135deg, var(--pink), var(--pink-bright));
+    padding: 7px 14px; border-radius: 999px; margin-bottom: 24px;
+    box-shadow: 0 4px 14px rgba(219,39,119,0.28);
+    opacity:0; animation: fadeInUp .5s ease .14s forwards;
+  }
+
+  h1{ font-size: 46px; line-height: 1.08; font-weight: 800; letter-spacing: -0.01em; opacity:0; animation: fadeInUp .55s ease .2s forwards; }
+  h1 .accent{ color: var(--pink-bright); display:block; }
+
+  .desc{ max-width: 660px; margin-top: 18px; color: var(--muted); font-size: 15px; line-height: 1.6; opacity:0; animation: fadeInUp .55s ease .28s forwards; }
+
+  @keyframes fadeInUp{ from{ opacity:0; transform: translateY(12px); } to{ opacity:1; transform: translateY(0); } }
+
+  .cards{ display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 14px; margin-top: 34px; }
+  .cards.cols-3{ grid-template-columns: repeat(3, minmax(0,1fr)); }
+  .cards.cols-2{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .card{
+    background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 16px 18px; min-height: 90px;
+    box-shadow: 0 2px 10px rgba(236,72,153,0.06);
+    opacity:0; transform: translateY(14px);
+    animation: fadeInUp .5s ease forwards;
+    transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+  }
+  .card:hover{ transform: translateY(-3px); box-shadow: 0 10px 22px rgba(236,72,153,0.18); border-color: var(--pink); }
+  .card .label{ font-size: 10px; letter-spacing: 0.1em; color: var(--pink-bright); margin-bottom: 8px; font-weight:700; }
+  .card .value{ font-size: 13.5px; font-weight: 600; line-height: 1.45; color: var(--text); }
+  .card .num{ font-size:11px; color:var(--muted); margin-bottom:6px; font-weight:700; }
+
+  /* roster (roll no separated from name) */
+  .roster{ display:flex; flex-direction:column; gap:6px; margin-top:2px; }
+  .roster-row{ display:flex; align-items:baseline; gap:10px; }
+  .roster-row .roll{
+    font-family: 'Cascadia Code','Consolas',monospace; font-size: 11.5px;
+    color: var(--pink-bright); background: var(--pink-soft);
+    border-radius: 5px; padding: 2px 6px; flex-shrink:0; font-weight:700;
+  }
+  .roster-row .name{ font-size: 13px; color: var(--text); font-weight:600; }
+
+  .card:nth-of-type(1){ animation-delay: .34s; }
+  .card:nth-of-type(2){ animation-delay: .40s; }
+  .card:nth-of-type(3){ animation-delay: .46s; }
+  .card:nth-of-type(4){ animation-delay: .52s; }
+  .card:nth-of-type(5){ animation-delay: .58s; }
+  .card:nth-of-type(6){ animation-delay: .64s; }
+
+  .items{ margin-top: 30px; display:flex; flex-direction:column; gap: 14px; }
+  .item{ display:flex; gap: 16px; align-items:flex-start; opacity:0; animation: fadeInUp .5s ease forwards; }
+  .item:nth-of-type(1){ animation-delay:.34s; } .item:nth-of-type(2){ animation-delay:.4s; }
+  .item:nth-of-type(3){ animation-delay:.46s; } .item:nth-of-type(4){ animation-delay:.52s; }
+  .item:nth-of-type(5){ animation-delay:.58s; }
+  .item .n{ flex-shrink:0; width:30px; height:30px; border-radius:50%; border: 1px solid var(--pink); color: var(--pink-bright); font-size:12px; font-weight:800; display:flex; align-items:center; justify-content:center; background: var(--pink-soft); }
+  .item .t{ font-size: 14.5px; font-weight:700; margin-bottom:2px; }
+  .item .d{ font-size: 13.5px; color: var(--muted); line-height:1.5; }
+
+  table{ margin-top: 28px; border-collapse: collapse; width: 100%; max-width: 640px; opacity:0; animation: fadeInUp .6s ease .3s forwards; }
+  th, td{ border: 1px solid var(--card-border); padding: 9px 14px; text-align:center; font-size: 13.5px; }
+  th{ background: var(--pink-soft); color: var(--pink-bright); font-weight:700; letter-spacing:0.03em; }
+  td{ color: var(--text); background: #fff; }
+
+  .eqs{ margin-top: 30px; display:flex; flex-direction:column; gap:12px; max-width:600px; }
+  .eq{ display:flex; align-items:center; gap:16px; background:var(--card-bg); border:1px solid var(--card-border); border-radius:8px; padding:12px 18px; opacity:0; animation: fadeInUp .5s ease forwards; transition: box-shadow .2s ease; }
+  .eq:hover{ box-shadow: 0 6px 16px rgba(236,72,153,0.15); }
+  .eq:nth-of-type(1){animation-delay:.34s;} .eq:nth-of-type(2){animation-delay:.4s;}
+  .eq:nth-of-type(3){animation-delay:.46s;} .eq:nth-of-type(4){animation-delay:.52s;} .eq:nth-of-type(5){animation-delay:.58s;}
+  .eq .name{ font-size:13px; color:var(--pink-bright); font-weight:800; min-width:80px; }
+  .eq .formula{ font-size:14px; font-family: 'Cascadia Code', 'Consolas', monospace; color: var(--text); }
+
+  .cols{ margin-top: 32px; display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; align-items:start; }
+  .col-title{ font-size:11px; letter-spacing:0.1em; color:var(--muted); margin-bottom:10px; font-weight:700; }
+  .col .card{ margin-bottom: 10px; }
+
+  .compare{ margin-top: 30px; display:grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  .compare-col .head{ font-size:12px; letter-spacing:0.08em; margin-bottom:14px; font-weight:800;}
+  .compare-col.good .head{ color: #16a34a; }
+  .compare-col.bad .head{ color: var(--pink-bright); }
+  .compare-row{ display:flex; gap:10px; font-size:13.5px; color:var(--text); margin-bottom:11px; line-height:1.4; opacity:0; animation: fadeInUp .5s ease forwards; }
+  .compare-row:nth-of-type(1){animation-delay:.34s;} .compare-row:nth-of-type(2){animation-delay:.42s;}
+  .compare-row:nth-of-type(3){animation-delay:.5s;} .compare-row:nth-of-type(4){animation-delay:.58s;}
+  .compare-col.good .mark{ color: #16a34a; }
+  .compare-col.bad .mark{ color: var(--pink-bright); }
+
+  .refs{ margin-top:22px; display:flex; flex-direction:column; gap:8px; }
+  .refs .r{ font-size:13px; color:var(--muted); opacity:0; animation: fadeInUp .5s ease forwards; }
+  .refs .r:nth-of-type(1){animation-delay:.34s;} .refs .r:nth-of-type(2){animation-delay:.4s;}
+  .refs .r:nth-of-type(3){animation-delay:.46s;} .refs .r:nth-of-type(4){animation-delay:.52s;}
+  .refs .r::before{ content:"— "; color: var(--pink-bright); }
+
+  .progress{ position:absolute; bottom: 30px; left: 32px; display:flex; align-items:center; gap: 6px; z-index: 3; }
+  .dot{ width: 16px; height: 3px; border-radius: 2px; background: var(--pink-soft); transition: all .35s ease; cursor:pointer; }
+  .dot.active{ background: var(--pink-bright); width: 26px; }
+
+  .arrows{ position:absolute; bottom: 24px; right: 32px; display:flex; gap: 10px; z-index:3; }
+  .arrow{
+    width:38px; height:38px; border-radius: 50%; border:1px solid var(--card-border);
+    background: #fff; color: var(--pink-bright);
+    display:flex; align-items:center; justify-content:center; cursor:pointer; transition: all .2s ease;
+    box-shadow: 0 2px 8px rgba(236,72,153,0.1);
+  }
+  .arrow:hover{ background: var(--pink); border-color: var(--pink); color:#fff; transform: scale(1.06); }
+  .arrow svg{ width:15px; height:15px; }
+
+  .slide{ opacity:0; transform: translateY(14px); transition: opacity .5s ease, transform .5s ease; position:absolute; top:0; left:0; width:100%; pointer-events:none; padding-bottom: 90px; }
+  .slide.active{ opacity:1; transform: translateY(0); position:relative; pointer-events:auto; }
+
+  .thanks-wrap{ display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; min-height: 66vh; }
+  .thanks-eyebrow{ font-size:12px; letter-spacing:0.14em; color: var(--pink-bright); font-weight:700; margin-bottom:18px; opacity:0; animation: fadeInUp .5s ease .05s forwards; }
+  .thanks-wrap h1{ font-size: 68px; opacity:0; animation: fadeInUp .6s ease .12s forwards; }
+  .thanks-wrap .sub{ margin-top:16px; max-width:520px; color: var(--muted); font-size:15px; line-height:1.6; opacity:0; animation: fadeInUp .55s ease .22s forwards; }
+  .thanks-names{ margin-top:36px; display:flex; gap:14px; flex-wrap:wrap; justify-content:center; opacity:0; animation: fadeInUp .55s ease .3s forwards; }
+  .thanks-names .roster-row{ background: var(--card-bg); border:1px solid var(--card-border); border-radius:999px; padding:8px 16px; box-shadow: 0 2px 10px rgba(236,72,153,0.06); }
+
+  @media (max-width: 760px){
+    h1{font-size:32px;}
+    .cards, .cards.cols-3, .cards.cols-2{grid-template-columns: repeat(2, minmax(0,1fr));}
+    .cols{grid-template-columns: 1fr;}
+    .compare{grid-template-columns: 1fr;}
+    .deck{padding-top: 60px;}
+  }
+</style>
+</head>
+<body>
+
+  <div class="line-layer" id="lineLayer">
+    <svg viewBox="0 0 1000 300" preserveAspectRatio="none">
+      <path class="path-track" id="pathTrack" d="M 20,40 C 250,10 400,120 550,90 S 850,180 980,60" />
+      <path class="path-glow" id="pathGlow" d="M 20,40 C 250,10 400,120 550,90 S 850,180 980,60" />
+      <circle class="node" id="lineNode" cx="20" cy="40" r="4" />
+    </svg>
+  </div>
+
+  <div class="deck" id="deck"></div>
+
+  <div class="progress" id="progress"></div>
+  <div class="arrows">
+    <div class="arrow" id="prev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></div>
+    <div class="arrow" id="next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>
+  </div>
+
+<script>
+const slides = [
+  { type:"title",
+    eyebrow:"DDCA Mini Project", tag:"Digital Design & Computer Architecture",
+    badge:"Combinational Logic · No Microcontroller",
+    heading:["Smart Parking Slot Availability", "& Entry Control System"],
+    desc:"Design and simulation of a digital circuit — built entirely from logic gates, with no microcontroller or memory element — that senses slot occupancy in real time, identifies the nearest free slot, and automatically controls the entry gate.",
+    cards:[
+      { label:"Course", value:"Digital Design & Computer Architecture" },
+      { label:"Instructor", value:"Dayarnab Baidya" },
+      { label:"Team Members", roster:[
+          {roll:"2620040172", name:"Mannava Yagna Saravana Kushal"},
+          {roll:"2620080007", name:"Vemuluri Lohitha"}
+        ]
+      },
+      { label:"Team Members", roster:[
+          {roll:"2620080008", name:"Sundi Manilatha"},
+          {roll:"2620080013", name:"Mokkapati Simrit"}
+        ]
+      }
+    ]
+  },
+  { type:"list",
+    eyebrow:"Introduction", tag:"Why Smart Parking?",
+    badge:"Real-Time · Automatic · Zero MCU",
+    heading:["Manually searching for parking", "wastes time and fuel"],
+    desc:"This project designs a digital circuit — built entirely from logic gates, with no microcontroller or memory element — that senses slot occupancy in real time, identifies the nearest free slot, and automatically controls the entry gate.",
+    items:[
+      { t:"Real-time", d:"Slot status updates instantly — pure combinational logic, no clock delay." },
+      { t:"Automatic", d:"Entry gate opens only when a slot is genuinely free." },
+      { t:"Zero MCU", d:"Built from discrete logic gates — no microcontroller needed." }
+    ]
+  },
+  { type:"list",
+    eyebrow:"Objectives", tag:"What This System Achieves",
+    badge:"Five Design Goals",
+    heading:["Five goals guided", "the circuit design"],
+    items:[
+      { t:"Detect occupancy", d:"Sense each parking slot's status using IR sensors." },
+      { t:"Identify the free slot", d:"Use a priority encoder to find the first available slot." },
+      { t:"Block entry when full", d:"Automatically stop entry once the lot has no free slots." },
+      { t:"Display the result", d:"Show the free slot number on a 7-segment output." },
+      { t:"Control the gate", d:"Drive the entry gate using combinational logic only." }
+    ]
+  },
+  { type:"columns",
+    eyebrow:"System Design", tag:"Block Diagram",
+    badge:"Inputs → Logic → Outputs",
+    heading:["Four sensors in,", "three outputs out"],
+    desc:"Slot and entry sensors feed a combinational logic unit, which drives the display, gate, and full indicator simultaneously.",
+    columns:[
+      { title:"Inputs", cards:["Slot 0 Sensor","Slot 1 Sensor","Slot 2 Sensor","Slot 3 Sensor","Entry Sensor (car present)"] },
+      { title:"Combinational Logic Unit", cards:["Priority Encoder","AND / OR Gate Network","Full Detector"] },
+      { title:"Outputs", cards:["Slot Display — 7-segment via decoder","Entry Gate — opens if free + car present","\u201CFull\u201D Indicator — LED / buzzer"] }
+    ]
+  },
+  { type:"list", cols:3,
+    eyebrow:"Hardware & Logic Elements", tag:"Components Used",
+    badge:"Six Building Blocks",
+    heading:["Six components", "build the circuit"],
+    items:[
+      { t:"IR Sensor Modules", d:"One per slot plus one at entry — output high when an object is detected." },
+      { t:"Priority Encoder (4-to-2)", d:"Finds the highest-priority free slot from the sensor inputs." },
+      { t:"Logic Gates", d:"AND, OR, NOT, NAND used to build Full, Valid and Gate control signals." },
+      { t:"BCD to 7-Segment Decoder", d:"Converts the encoder's binary output into a slot number display." },
+      { t:"Indicator LEDs", d:"Show \u201CFull\u201D status and simulate the gate/entry signal." },
+      { t:"Simulation Software", d:"Logisim Evolution / Multisim used to build and test the circuit." }
+    ]
+  },
+  { type:"list",
+    eyebrow:"How It Works", tag:"Working Principle",
+    badge:"Four-Stage Signal Flow",
+    heading:["From sensor input", "to gate output"],
+    items:[
+      { t:"Sense", d:"Each slot sensor outputs 1 (occupied) or 0 (free); the entry sensor flags a waiting car." },
+      { t:"Evaluate", d:"The combinational block reads all inputs continuously — no clock, no memory, output follows input instantly." },
+      { t:"Encode", d:"The priority encoder resolves the address of the first free slot among B0\u2013B3." },
+      { t:"Act", d:"The system drives three outputs at once: the slot display, the entry gate, and the Full indicator." }
+    ]
+  },
+  { type:"table",
+    eyebrow:"Design Basis", tag:"Truth Table — Priority Encoder",
+    badge:"B0 = Highest Priority",
+    heading:["The priority encoder's", "truth table"],
+    desc:"B0\u2013B3 = 1 if slot occupied (B0 = highest priority). Y1Y0 = address of the selected free slot; V = valid (at least one slot free).",
+    headers:["B0","B1","B2","B3","Y1","Y0","V"],
+    rows:[
+      ["0","x","x","x","0","0","1"],
+      ["1","0","x","x","0","1","1"],
+      ["1","1","0","x","1","0","1"],
+      ["1","1","1","0","1","1","1"],
+      ["1","1","1","1","x","x","0"]
+    ]
+  },
+  { type:"equations",
+    eyebrow:"Design Basis", tag:"Boolean Equations (K-map Simplified)",
+    badge:"From Truth Table to Gates",
+    heading:["Minimized equations", "drive the circuit"],
+    equations:[
+      { name:"Y0", formula:"B0 . (B1' + B2.B3')" },
+      { name:"Y1", formula:"B0 . B1 . (B2' + B3')" },
+      { name:"V (Valid)", formula:"(B0.B1.B2.B3)'" },
+      { name:"Full", formula:"B0 . B1 . B2 . B3" },
+      { name:"Gate_Open", formula:"V . CarSensor" }
+    ]
+  },
+  { type:"content",
+    eyebrow:"Gate-Level Design", tag:"Circuit Diagram (Logisim)",
+    badge:"NOT / AND / OR Network",
+    heading:["Built entirely from", "NOT, AND and OR gates"],
+    desc:"In Logisim: input pins B0\u2013B3 and CarSensor feed a network of NOT, AND and OR gates wired directly from the Boolean equations. NOT gates invert B1, B2 and B3; AND/OR combinations derive Y0 and Y1; a 4-input AND detects Full; and a final AND gate combines the Valid signal with CarSensor to drive Gate_Open. Output pins read Y1, Y0, Full and Gate_Open directly off the gate network."
+  },
+  { type:"list", cols:3,
+    eyebrow:"Verification", tag:"Simulation & Results",
+    badge:"Logisim Evolution",
+    heading:["Three test cases", "verify the logic"],
+    desc:"Simulated in Logisim Evolution (alternatively Multisim / Proteus) to confirm the circuit matches the truth table.",
+    items:[
+      { t:"Case A — All slots free", d:"Display shows Slot 0, and the gate opens." },
+      { t:"Case B — Slot 0 occupied", d:"Display shows Slot 1, and the gate opens." },
+      { t:"Case C — All slots occupied", d:"Full LED turns on and the gate stays closed." }
+    ]
+  },
+  { type:"list", cols:3,
+    eyebrow:"Real-World Use", tag:"Applications",
+    badge:"Six Deployment Settings",
+    heading:["Where this system", "fits in practice"],
+    items:[
+      { t:"Shopping Malls", d:"Guide shoppers to the nearest free bay instantly." },
+      { t:"Airports", d:"Manage high vehicle turnover with automatic gate control." },
+      { t:"Hospitals", d:"Reduce delays for visitors and emergency vehicles." },
+      { t:"Corporate Campuses", d:"Automate staff and visitor parking without manned booths." },
+      { t:"Smart Cities", d:"Feed slot data into city-wide parking guidance networks." },
+      { t:"Residential Complexes", d:"Simple, low-cost entry automation for gated communities." }
+    ]
+  },
+  { type:"compare",
+    eyebrow:"Trade-offs", tag:"Advantages & Limitations",
+    badge:"What We Gained vs Gave Up",
+    heading:["The cost of staying", "purely combinational"],
+    pros:[
+      "No microcontroller needed — low cost",
+      "Instant response — no clock delay",
+      "Simple to build, test and debug",
+      "Strong demonstration of core digital design"
+    ],
+    cons:[
+      "Gate count grows fast with more slots",
+      "No memory — can't log history or counts",
+      "No support for multiple entry gates",
+      "Not designed for slot reservation"
+    ]
+  },
+  { type:"list",
+    eyebrow:"What's Next", tag:"Future Scope",
+    badge:"Four Directions",
+    heading:["Four directions", "for future expansion"],
+    items:[
+      { t:"IoT Integration", d:"Add a microcontroller layer for app-based slot booking." },
+      { t:"Sequential Logic", d:"Use counters to track real vehicle counts over time." },
+      { t:"RFID / ANPR", d:"Automate entry with number-plate or tag recognition." },
+      { t:"Scalability", d:"Cascade multiple 74148 ICs for larger parking lots." }
+    ]
+  },
+  { type:"content",
+    eyebrow:"Wrap-Up", tag:"Conclusion",
+    badge:"Project Complete",
+    heading:["Combinational logic,", "proven end to end"],
+    desc:"We successfully designed and simulated a combinational-logic-based smart parking system that detects free slots, displays the nearest one, and automatically controls entry — reinforcing core DDCA concepts such as priority encoding, Boolean minimization, and gate-level design.",
+    refs:[
+      "M. Morris Mano, \u201CDigital Design,\u201D Pearson Education",
+      "Patterson & Hennessy, \u201CComputer Organization and Design\u201D",
+      "Texas Instruments, SN74LS148 Priority Encoder datasheet",
+      "Logisim Evolution — official documentation"
+    ]
+  },
+  { type:"thanks",
+    eyebrow:"Thank You",
+    heading:"Thank You",
+    sub:"We appreciate your time — happy to walk through the circuit, the truth table, or the live Logisim simulation in more detail.",
+    roster:[
+      {roll:"2620040172", name:"Mannava Yagna Saravana Kushal"},
+      {roll:"2620080007", name:"Vemuluri Lohitha"},
+      {roll:"2620080008", name:"Sundi Manilatha"},
+      {roll:"2620080013", name:"Mokkapati Simrit"}
+    ]
+  }
+];
+
+const linePaths = [
+  { d: "M 20,40 C 250,10 400,120 550,90 S 850,180 980,60", start:{x:20,y:40} },
+  { d: "M 40,150 C 220,40 420,40 560,110 S 800,40 970,120", start:{x:40,y:150} },
+  { d: "M 10,90 C 200,190 380,20 560,60 S 830,150 990,30", start:{x:10,y:90} },
+  { d: "M 60,20 C 260,160 460,150 600,40 S 860,20 960,150", start:{x:60,y:20} },
+  { d: "M 30,170 C 240,60 400,170 580,30 S 840,130 980,70", start:{x:30,y:170} },
+  { d: "M 980,50 C 760,150 560,20 420,90 S 180,10 20,120", start:{x:980,y:50} }
+];
+
+let current = 0;
+const deck = document.getElementById('deck');
+const progress = document.getElementById('progress');
+
+function headerHTML(s, i){
+  if(s.type === 'thanks'){
+    return `
+      <div class="index">${String(i+1).padStart(2,'0')} / ${String(slides.length).padStart(2,'0')}</div>
+      <div class="thanks-wrap">
+        <div class="thanks-eyebrow">${s.eyebrow}</div>
+        <h1>${s.heading}</h1>
+        <p class="sub">${s.sub}</p>
+        <div class="thanks-names">
+          ${s.roster.map(m => `<div class="roster-row"><span class="roll">${m.roll}</span> <span class="name">${m.name}</span></div>`).join('')}
+        </div>
+      </div>
+    `;
+  }
+  return `
+    <div class="index">${String(i+1).padStart(2,'0')} / ${String(slides.length).padStart(2,'0')}</div>
+    <div class="eyebrow"><span class="rule"></span>${s.eyebrow}</div>
+    <div class="tagline">${s.tag}</div>
+    <div class="badge">${s.badge}</div>
+    <h1>${s.heading[0]}<span class="accent">${s.heading[1]}</span></h1>
+    ${s.desc ? `<p class="desc">${s.desc}</p>` : ''}
+  `;
+}
+
+function cardInner(c){
+  if(c.roster){
+    return `<div class="label">${c.label}</div><div class="roster">${c.roster.map(m => `<div class="roster-row"><span class="roll">${m.roll}</span><span class="name">${m.name}</span></div>`).join('')}</div>`;
+  }
+  return `<div class="label">${c.label}</div><div class="value">${c.value}</div>`;
+}
+
+function bodyHTML(s){
+  if(s.type === 'title'){
+    return `<div class="cards">
+      ${s.cards.map(c => `<div class="card">${cardInner(c)}</div>`).join('')}
+    </div>`;
+  }
+  if(s.type === 'list'){
+    const colClass = s.cols === 3 ? ' cols-3' : '';
+    return `<div class="cards${colClass}">
+      ${s.items.map((it,idx) => `
+        <div class="card">
+          <div class="num">0${idx+1}</div>
+          <div class="value" style="margin-bottom:6px;">${it.t}</div>
+          <div style="font-size:12.5px; color:var(--muted); line-height:1.5; font-weight:400;">${it.d}</div>
+        </div>
+      `).join('')}
+    </div>`;
+  }
+  if(s.type === 'columns'){
+    return `<div class="cols">
+      ${s.columns.map(col => `
+        <div class="col">
+          <div class="col-title">${col.title}</div>
+          ${col.cards.map(c => `<div class="card"><div class="value" style="font-weight:500;">${c}</div></div>`).join('')}
+        </div>
+      `).join('')}
+    </div>`;
+  }
+  if(s.type === 'table'){
+    return `<table>
+      <tr>${s.headers.map(h => `<th>${h}</th>`).join('')}</tr>
+      ${s.rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}
+    </table>`;
+  }
+  if(s.type === 'equations'){
+    return `<div class="eqs">
+      ${s.equations.map(e => `<div class="eq"><div class="name">${e.name} =</div><div class="formula">${e.formula}</div></div>`).join('')}
+    </div>`;
+  }
+  if(s.type === 'compare'){
+    return `<div class="compare">
+      <div class="compare-col good">
+        <div class="head">Advantages</div>
+        ${s.pros.map(p => `<div class="compare-row"><span class="mark">+</span><span>${p}</span></div>`).join('')}
+      </div>
+      <div class="compare-col bad">
+        <div class="head">Limitations</div>
+        ${s.cons.map(c => `<div class="compare-row"><span class="mark">\u2013</span><span>${c}</span></div>`).join('')}
+      </div>
+    </div>`;
+  }
+  if(s.type === 'content'){
+    return s.refs ? `<div class="refs">${s.refs.map(r => `<div class="r">${r}</div>`).join('')}</div>` : '';
+  }
+  return '';
+}
+
+function updateLine(){
+  const p = linePaths[current % linePaths.length];
+  const lineLayer = document.getElementById('lineLayer');
+  lineLayer.style.opacity = '0';
+  setTimeout(() => {
+    document.getElementById('pathTrack').setAttribute('d', p.d);
+    document.getElementById('pathGlow').setAttribute('d', p.d);
+    document.getElementById('lineNode').setAttribute('cx', p.start.x);
+    document.getElementById('lineNode').setAttribute('cy', p.start.y);
+    lineLayer.style.opacity = '0.95';
+  }, 220);
+}
+
+function render(){
+  deck.innerHTML = '';
+  progress.innerHTML = '';
+
+  slides.forEach((s, i) => {
+    const slide = document.createElement('div');
+    slide.className = 'slide' + (i === current ? ' active' : '');
+    slide.innerHTML = headerHTML(s, i) + bodyHTML(s);
+    deck.appendChild(slide);
+
+    const dot = document.createElement('div');
+    dot.className = 'dot' + (i === current ? ' active' : '');
+    dot.addEventListener('click', () => { current = i; render(); });
+    progress.appendChild(dot);
+  });
+
+  updateLine();
+}
+
+document.getElementById('next').addEventListener('click', () => { current = (current + 1) % slides.length; render(); });
+document.getElementById('prev').addEventListener('click', () => { current = (current - 1 + slides.length) % slides.length; render(); });
+document.addEventListener('keydown', (e) => {
+  if(e.key === 'ArrowRight') document.getElementById('next').click();
+  if(e.key === 'ArrowLeft') document.getElementById('prev').click();
+});
+
+render();
+</script>
+</body>
+</html>
